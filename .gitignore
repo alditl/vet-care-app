@@ -1,0 +1,5 @@
+node_modules/
+# Entornos virtuales de Python
+VetCareFinal/venv/
+venv/
+.venv/
