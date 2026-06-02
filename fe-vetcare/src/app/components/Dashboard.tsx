@@ -1,8 +1,15 @@
+import { useEffect, useState } from "react";
 import { Calendar, ListChecks, Clock, Building2, Dog } from "lucide-react";
 import { useNavigate } from "react-router";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    const name = localStorage.getItem("vetcare_userName");
+    if (name) setUserName(name);
+  }, []);
 
   const menuItems = [
     {
@@ -34,7 +41,9 @@ export default function Dashboard() {
   return (
     <div className="min-h-[calc(100vh-4rem)] flex flex-col p-6">
       <div className="mb-8">
-        <h1 className="text-2xl text-foreground mb-1">¡Hola, María!</h1>
+        <h1 className="text-2xl text-foreground mb-1">
+          ¡Hola{userName ? `, ${userName}` : "!"}!
+        </h1>
         <p className="text-muted-foreground">¿Qué necesitas hoy?</p>
       </div>
 

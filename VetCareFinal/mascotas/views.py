@@ -1,12 +1,32 @@
-from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes # <-- AGREGÁ ESTA LÍNEA
-from rest_framework.permissions import AllowAny
-from .models import Mascota, Veterinaria, Turno
+from rest_framework import viewsets, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from django.http import JsonResponse
+from django.contrib.sessions.models import Session
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import authenticate
+from django.contrib.auth import login, logout
+from django.contrib.auth.models import User
+from django.conf import settings
+from .models import Mascota, Veterinaria, Turno, Perfil
 from .serializers import MascotaSerializer, VeterinariaSerializer, TurnoSerializer
 
 class MascotaViewSet(viewsets.ModelViewSet):
-    queryset = Mascota.objects.all()
+    """ViewSet que limita las mascotas al usuario autenticado."""
+    queryset = Mascota.objects.none()
     serializer_class = MascotaSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if user and user.is_authenticated:
+            return Mascota.objects.filter(dueño=user)
+        return Mascota.objects.none()
+
+    def perform_create(self, serializer):
+        # Asignar el usuario autenticado como dueño al crear mascota
+        serializer.save(dueño=self.request.user)
 
 class VeterinariaViewSet(viewsets.ModelViewSet):
     queryset = Veterinaria.objects.all()
@@ -55,3 +75,77 @@ def registrar_usuario(request):
         
     except Exception as e:
         return Response({'message': f'Error al registrar el usuario: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_usuario(request):
+    data = request.data
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return Response({'message': 'Email y contraseña son obligatorios.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = authenticate(request, username=email, password=password)
+    if user is None:
+        return Response({'message': 'Email o contraseña incorrectos.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    login(request, user)
+
+    return Response(
+        {
+            'message': 'Inicio de sesión correcto.',
+            'first_name': user.first_name,
+            'email': user.email,
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout_usuario(request):
+    """Cerrar sesión del usuario autenticado.
+
+    Simplificamos la lógica: usar `logout(request)` y `response.delete_cookie`.
+    El frontend debe enviar `X-CSRFToken` y `credentials: 'include'`.
+    """
+    try:
+        logout(request)
+    except Exception:
+        pass
+
+    response = JsonResponse({'message': 'Sesión cerrada correctamente.'}, status=200)
+
+    # Borrar la cookie de sesión; evitamos forzar domain explícito para no romper en dev
+    cookie_name = settings.SESSION_COOKIE_NAME
+    cookie_path = getattr(settings, 'SESSION_COOKIE_PATH', '/') or '/'
+    try:
+        response.delete_cookie(cookie_name, path=cookie_path)
+    except Exception:
+        # nada crítico si falla
+        pass
+
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_user(request):
+    """Devuelve los datos del usuario autenticado y su perfil."""
+    user = request.user
+    try:
+        perfil = Perfil.objects.filter(user=user).first()
+        telefono = perfil.telefono if perfil else ''
+    except Exception:
+        telefono = ''
+
+    data = {
+        'first_name': user.first_name,
+        'email': user.email,
+        'phone': telefono,
+    }
+
+    return Response(data, status=status.HTTP_200_OK)

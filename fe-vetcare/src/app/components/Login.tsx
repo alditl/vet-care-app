@@ -5,10 +5,49 @@ import { useNavigate } from "react-router";
 export default function Login() {
   const navigate = useNavigate();
   const [showVetModal, setShowVetModal] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    navigate("/home");
+    setError("");
+    setLoading(true);
+
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+
+    if (!email || !password) {
+      setError("Email y contraseña son obligatorios");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/login/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const name = data.first_name || "";
+        if (name) {
+          localStorage.setItem("vetcare_userName", name);
+        }
+        navigate("/home");
+      } else {
+        setError(data.message || "Credenciales inválidas");
+      }
+    } catch (err) {
+      setError("Error de conexión. Intenta de nuevo.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVetLogin = (e: React.FormEvent) => {
@@ -31,10 +70,16 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="email"
+              name="email"
               placeholder="Email"
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
@@ -44,6 +89,7 @@ export default function Login() {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="password"
+              name="password"
               placeholder="Contraseña"
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
@@ -51,9 +97,10 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl hover:opacity-90 transition-opacity shadow-md"
+            disabled={loading}
+            className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl hover:opacity-90 transition-opacity shadow-md disabled:opacity-50"
           >
-            Iniciar Sesión
+            {loading ? "Iniciando..." : "Iniciar Sesión"}
           </button>
 
           <div className="relative my-6">

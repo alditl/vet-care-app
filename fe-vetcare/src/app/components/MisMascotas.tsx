@@ -65,7 +65,7 @@ export default function MisMascotas() {
 
   // --- TRAER MASCOTAS DE LA BASE DE DATOS (DJANGO) ---
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/mascotas/")
+    fetch("/api/mascotas/", { credentials: 'include' })
       .then((response) => response.json())
       .then((data: any[]) => {
         const mappedPets: Pet[] = data.map((mascota) => ({
@@ -490,27 +490,48 @@ export default function MisMascotas() {
               if (!newPet.name || !newPet.breed) return;
 
               try {
-                const response = await fetch(
-                  "http://127.0.0.1:8000/api/mascotas/",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      nombre: newPet.name,
-                      especie: newPet.species,
-                      raza: newPet.breed,
-                      edad: parseInt(newPet.age) || 0,
-                      peso: parseFloat(newPet.weight) || 0,
-                      tipo_pelo: newPet.furType || "No especificado",
-                      color_pelo: newPet.furColor || "No especificado",
-                      dueño: 1,
-                    }),
+                const getCookie = (name: string) => {
+                  const value = `; ${document.cookie}`;
+                  const parts = value.split(`; ${name}=`);
+                  if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+                  return '';
+                };
+
+                const csrftoken = getCookie('csrftoken');
+                if (!csrftoken) {
+                  console.warn('No se encontró csrftoken en las cookies.');
+                }
+                const response = await fetch("/api/mascotas/", {
+                  method: "POST",
+                  credentials: 'include',
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": csrftoken,
                   },
-                );
+                  body: JSON.stringify({
+                    nombre: newPet.name,
+                    especie: newPet.species,
+                    raza: newPet.breed,
+                    edad: parseInt(newPet.age) || 0,
+                    peso: parseFloat(newPet.weight) || 0,
+                    tipo_pelo: newPet.furType || "No especificado",
+                    color_pelo: newPet.furColor || "No especificado",
+                  }),
+                });
 
-                const nuevaMascotaBBDD = await response.json();
+                const responseText = await response.text();
+                let nuevaMascotaBBDD: any;
+                try {
+                  nuevaMascotaBBDD = JSON.parse(responseText);
+                } catch {
+                  nuevaMascotaBBDD = responseText;
+                }
 
-                if (!response.ok) throw new Error("Error en el guardado.");
+                if (!response.ok) {
+                  console.error('Error en el guardado:', response.status, nuevaMascotaBBDD);
+                  alert(`Error al guardar mascota: ${response.status} - ${JSON.stringify(nuevaMascotaBBDD)}`);
+                  throw new Error("Error en el guardado.");
+                }
 
                 const petFormateada: Pet = {
                   id: nuevaMascotaBBDD.id,

@@ -5,6 +5,7 @@ class MascotaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mascota
         fields = '__all__'
+        read_only_fields = ('dueño',)
 
 class VeterinariaSerializer(serializers.ModelSerializer):
     class Meta:

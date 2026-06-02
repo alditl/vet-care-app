@@ -1,12 +1,63 @@
 import { Dog, Mail, Lock, User, Phone } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useState } from "react";
 
 export default function Register() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    navigate("/home");
+    setError("");
+    setLoading(true);
+
+    const form = e.currentTarget;
+    const fullName = (form.elements.namedItem("fullName") as HTMLInputElement).value;
+    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const phone = (form.elements.namedItem("phone") as HTMLInputElement).value;
+    const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    const confirmPassword = (form.elements.namedItem("confirmPassword") as HTMLInputElement).value;
+
+    // Validación básica
+    if (!fullName || !email || !phone || !password) {
+      setError("Todos los campos son obligatorios");
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/register/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          email,
+          phone,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Usuario registrado con éxito. Inicia sesión ahora.");
+        navigate("/login");
+      } else {
+        setError(data.message || "Error al registrar el usuario");
+      }
+    } catch (err) {
+      setError("Error de conexión. Intenta de nuevo.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -21,11 +72,19 @@ export default function Register() {
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
+              name="fullName"
               placeholder="Nombre completo"
+              required
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -34,7 +93,9 @@ export default function Register() {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="email"
+              name="email"
               placeholder="Email"
+              required
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -43,7 +104,9 @@ export default function Register() {
             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="tel"
+              name="phone"
               placeholder="Teléfono"
+              required
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -52,7 +115,9 @@ export default function Register() {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="password"
+              name="password"
               placeholder="Contraseña"
+              required
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
@@ -61,16 +126,19 @@ export default function Register() {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="password"
+              name="confirmPassword"
               placeholder="Confirmar contraseña"
+              required
               className="w-full pl-12 pr-4 py-3.5 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl hover:opacity-90 transition-opacity shadow-md"
+            disabled={loading}
+            className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl hover:opacity-90 transition-opacity shadow-md disabled:opacity-50"
           >
-            Crear Cuenta
+            {loading ? "Creando cuenta..." : "Crear Cuenta"}
           </button>
 
           <div className="relative my-6">

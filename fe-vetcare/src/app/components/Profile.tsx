@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Mail, Phone, MapPin, Dog, Bell, Shield, LogOut, Plus, X, Pencil, Trash2, Lock, Eye, FileKey } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -8,6 +8,9 @@ interface Pet {
   species: string;
   breed: string;
   age: number;
+  weight?: number;
+  furType?: string;
+  furColor?: string;
 }
 
 interface ClientData {
@@ -18,43 +21,142 @@ interface ClientData {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [pets, setPets] = useState<Pet[]>([
-    { id: 1, name: "Max", species: "Perro", breed: "Golden Retriever", age: 3 },
-  ]);
+  const [pets, setPets] = useState<Pet[]>([]);
   const [showAddPetModal, setShowAddPetModal] = useState(false);
   const [newPet, setNewPet] = useState({
     name: "",
     species: "",
     breed: "",
     age: "",
+    weight: "",
+    furType: "",
+    furColor: "",
   });
 
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showEditDataModal, setShowEditDataModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [clientData, setClientData] = useState<ClientData>({
-    email: "maria.gonzalez@email.com",
-    phone: "+54 11 5555-1234",
-    address: "Av. Corrientes 1234, CABA",
+    email: "",
+    phone: "",
+    address: "",
   });
+  const [userName, setUserName] = useState<string>('');
   const [editForm, setEditForm] = useState<ClientData>({ ...clientData });
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      // Obtener csrftoken desde la cookie y enviarlo en la cabecera X-CSRFToken
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+        return '';
+      };
+
+      const csrftoken = getCookie('csrftoken');
+
+      await fetch("/api/logout/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Error al cerrar sesión:", err);
+    }
+    localStorage.removeItem("vetcare_userName");
     navigate("/login");
   };
 
-  const handleAddPet = () => {
-    if (newPet.name && newPet.species && newPet.breed && newPet.age) {
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const res = await fetch('/api/me/', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setClientData({ email: data.email || '', phone: data.phone || '', address: '' });
+          setUserName(data.first_name || data.email || 'Usuario');
+          // Obtener mascotas del usuario
+          try {
+            const petsRes = await fetch('/api/mascotas/', { credentials: 'include' });
+            if (petsRes.ok) {
+              const petsData = await petsRes.json();
+              // mapear campos del backend a Pet
+              const mapped = petsData.map((m: any, idx: number) => ({
+                id: m.id || idx + 1,
+                name: m.nombre || 'Mascota',
+                species: m.especie || '',
+                breed: m.raza || '',
+                age: m.edad || 0,
+              }));
+              setPets(mapped);
+            }
+          } catch (err) {
+            console.error('Error al obtener mascotas:', err);
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          // no autenticado: redirigir al login
+          navigate('/login');
+        }
+      } catch (err) {
+        console.error('Error al obtener datos del usuario:', err);
+      }
+    };
+
+    fetchMe();
+  }, [navigate]);
+
+  const handleAddPet = async () => {
+    if (!newPet.name || !newPet.species || !newPet.breed || !newPet.age) {
+      return;
+    }
+
+    const getCookie = (name: string) => {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+      return '';
+    };
+
+    const csrftoken = getCookie('csrftoken');
+
+    try {
+      const response = await fetch('/api/mascotas/', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken,
+        },
+        body: JSON.stringify({
+          nombre: newPet.name,
+          especie: newPet.species,
+          raza: newPet.breed,
+          edad: parseInt(newPet.age) || 0,
+          peso: 0,
+          tipo_pelo: 'No especificado',
+          color_pelo: 'No especificado',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('Error al guardar mascota:', response.status, data);
+        return;
+      }
+
       const pet: Pet = {
-        id: pets.length + 1,
-        name: newPet.name,
-        species: newPet.species,
-        breed: newPet.breed,
-        age: parseInt(newPet.age),
+        id: data.id,
+        name: data.nombre,
+        species: data.especie,
+        breed: data.raza,
+        age: data.edad,
       };
       setPets([...pets, pet]);
-      setNewPet({ name: "", species: "", breed: "", age: "" });
+      setNewPet({ name: '', species: '', breed: '', age: '', weight: '', furType: '', furColor: '' });
       setShowAddPetModal(false);
+    } catch (error) {
+      console.error('Error al guardar mascota:', error);
     }
   };
 
@@ -80,7 +182,7 @@ export default function Profile() {
           <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center mb-4 shadow-lg">
             <User className="w-12 h-12 text-white" strokeWidth={2} />
           </div>
-          <h1 className="text-xl text-foreground">María González</h1>
+          <h1 className="text-xl text-foreground">{userName || 'Usuario'}</h1>
           <p className="text-muted-foreground text-sm">Cliente desde 2023</p>
         </div>
 
@@ -234,21 +336,63 @@ export default function Profile() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowAddPetModal(false)}
-                  className="flex-1 bg-secondary text-foreground py-3 rounded-2xl hover:bg-accent transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleAddPet}
-                  disabled={!newPet.name || !newPet.species || !newPet.breed || !newPet.age}
-                  className="flex-1 bg-primary text-white py-3 rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Agregar
-                </button>
+              {/* action buttons relocated to modal footer below extra fields */}
+            </div>
+            
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block text-sm text-muted-foreground">
+                  Peso (kg)
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newPet.weight}
+                    onChange={(e) => setNewPet({ ...newPet, weight: e.target.value })}
+                    placeholder="ej. 12.5"
+                    className="w-full mt-2 border border-border rounded-xl p-3 text-foreground bg-input-background"
+                  />
+                </label>
+
+                <label className="block text-sm text-muted-foreground">
+                  Tipo de pelaje
+                  <input
+                    type="text"
+                    value={newPet.furType}
+                    onChange={(e) => setNewPet({ ...newPet, furType: e.target.value })}
+                    placeholder="ej. Corto"
+                    className="w-full mt-2 border border-border rounded-xl p-3 text-foreground bg-input-background"
+                  />
+                </label>
               </div>
+
+              <div>
+                <label className="block text-sm text-muted-foreground">
+                  Color de pelaje
+                  <input
+                    type="text"
+                    value={newPet.furColor}
+                    onChange={(e) => setNewPet({ ...newPet, furColor: e.target.value })}
+                    placeholder="ej. Dorado"
+                    className="w-full mt-2 border border-border rounded-xl p-3 text-foreground bg-input-background"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-6">
+              <button
+                onClick={() => setShowAddPetModal(false)}
+                className="flex-1 bg-secondary text-foreground py-3 rounded-2xl hover:bg-accent transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddPet}
+                disabled={!newPet.name || !newPet.species || !newPet.breed || !newPet.age}
+                className="flex-1 bg-primary text-white py-3 rounded-2xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Agregar
+              </button>
             </div>
           </div>
         </div>
