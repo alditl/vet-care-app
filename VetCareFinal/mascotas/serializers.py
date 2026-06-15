@@ -13,6 +13,9 @@ class VeterinariaSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class TurnoSerializer(serializers.ModelSerializer):
+    mascota_nombre = serializers.CharField(source='mascota.nombre', read_only=True)
+    veterinaria_nombre = serializers.CharField(source='veterinaria.nombre', read_only=True)
+
     class Meta:
         model = Turno
-        fields = '__all__'
+        fields = ['id', 'mascota', 'mascota_nombre', 'veterinaria', 'veterinaria_nombre', 'fecha_hora', 'motivo']

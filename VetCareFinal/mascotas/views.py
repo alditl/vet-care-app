@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.http import JsonResponse
 from django.contrib.sessions.models import Session
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.contrib.auth import authenticate
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -32,9 +33,11 @@ class VeterinariaViewSet(viewsets.ModelViewSet):
     queryset = Veterinaria.objects.all()
     serializer_class = VeterinariaSerializer
 
+@method_decorator(csrf_exempt, name='dispatch')
 class TurnoViewSet(viewsets.ModelViewSet):
     queryset = Turno.objects.all()
     serializer_class = TurnoSerializer
+    permission_classes = [IsAuthenticated]
 
 # --- VISTA PARA REGISTRAR USUARIOS DESDE EL FRONTEND ---
 

@@ -1,5 +1,7 @@
-node_modules/
+**/node_modules/
 # Entornos virtuales de Python
 VetCareFinal/venv/
-venv/
-.venv/
+**/venv/
+**/env/
+**/.venv/
+**/__pycache__/

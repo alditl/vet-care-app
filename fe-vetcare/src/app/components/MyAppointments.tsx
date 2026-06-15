@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
-import { ChevronLeft, Calendar, MapPin, Clock, X, FileText, Upload, Paperclip } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ChevronLeft, Calendar, MapPin, Clock, X, FileText, Upload, Paperclip, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
+import { getCsrfToken } from "@/app/lib/csrf";
 
 interface Study {
   id: number;
@@ -22,33 +23,67 @@ interface Appointment {
   studies: Study[];
 }
 
+interface TurnoApi {
+  id: number;
+  mascota_nombre: string;
+  veterinaria_nombre: string;
+  fecha_hora: string;
+  motivo: string;
+}
+
+function formatTurno(t: TurnoApi): Appointment {
+  const dt = new Date(t.fecha_hora);
+  const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const day = days[dt.getDay()];
+  const date = dt.getDate();
+  const month = months[dt.getMonth()];
+  const hours = String(dt.getHours()).padStart(2, "0");
+  const minutes = String(dt.getMinutes()).padStart(2, "0");
+  return {
+    id: t.id,
+    location: t.veterinaria_nombre,
+    reason: t.motivo,
+    date: `${day} ${date} ${month}`,
+    time: `${hours}:${minutes}`,
+    status: dt > new Date() ? "Próximo" : "Realizado",
+    pet: t.mascota_nombre,
+    notes: "",
+    studies: [],
+  };
+}
+
 export default function MyAppointments() {
   const navigate = useNavigate();
   const [selectedAppointment, setSelectedAppointment] = useState<number | null>(null);
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: 1,
-      location: "Vet Care Recoleta",
-      reason: "Consulta general",
-      date: "Mié 23 Abr",
-      time: "10:30",
-      status: "Próximo",
-      pet: "Max",
-      notes: "",
-      studies: [],
-    },
-    {
-      id: 2,
-      location: "Veterinaria Palermo",
-      reason: "Vacunación",
-      date: "Vie 25 Abr",
-      time: "15:30",
-      status: "Confirmado",
-      pet: "Max",
-      notes: "",
-      studies: [],
-    },
-  ]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/turnos/", { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error("Error al obtener turnos");
+        return res.json();
+      })
+      .then((data: TurnoApi[]) => setAppointments(data.map(formatTurno)))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await fetch(`/api/turnos/${id}/`, {
+        method: "DELETE",
+        headers: { "X-CSRFToken": getCsrfToken() },
+        credentials: "include",
+      });
+      if (res.ok || res.status === 204) {
+        setAppointments((prev) => prev.filter((a) => a.id !== id));
+      }
+    } catch (err) {
+      console.error("Error al cancelar turno:", err);
+    }
+  };
 
   const [editingNotes, setEditingNotes] = useState("");
   const [newStudyName, setNewStudyName] = useState("");
@@ -152,67 +187,74 @@ export default function MyAppointments() {
       </div>
 
       <div className="p-6 space-y-4">
-        {appointments.map((apt) => (
-          <div
-            key={apt.id}
-            className="bg-white border border-border rounded-3xl p-5 shadow-sm"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs ${
-                      apt.status === "Próximo"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
-                  >
-                    {apt.status}
-                  </span>
-                  {(apt.notes || apt.studies.length > 0) && (
-                    <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs flex items-center gap-1">
-                      <FileText className="w-3 h-3" />
-                      Info agregada
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : appointments.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            No tienes turnos programados
+          </div>
+        ) : (
+          appointments.map((apt) => (
+            <div
+              key={apt.id}
+              className="bg-white border border-border rounded-3xl p-5 shadow-sm"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs ${
+                        apt.status === "Próximo"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {apt.status}
                     </span>
-                  )}
+                    {(apt.notes || apt.studies.length > 0) && (
+                      <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs flex items-center gap-1">
+                        <FileText className="w-3 h-3" />
+                        Info agregada
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-foreground mb-1">{apt.reason}</h3>
+                  <p className="text-sm text-muted-foreground">Mascota: {apt.pet}</p>
                 </div>
-                <h3 className="text-foreground mb-1">{apt.reason}</h3>
-                <p className="text-sm text-muted-foreground">Mascota: {apt.pet}</p>
+                <button
+                  onClick={() => handleDelete(apt.id)}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-sm">{apt.location}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="text-sm">{apt.date}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span className="text-sm">{apt.time}</span>
+                </div>
+              </div>
+
               <button
-                onClick={() => {
-                  const updatedApts = appointments.filter(a => a.id !== apt.id);
-                  setAppointments(updatedApts);
-                }}
-                className="text-muted-foreground hover:text-destructive transition-colors"
+                onClick={() => handleOpenDetails(apt.id)}
+                className="w-full mt-4 bg-secondary text-foreground py-3 rounded-2xl hover:bg-accent transition-colors"
               >
-                <X className="w-5 h-5" />
+                Ver detalles
               </button>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="text-sm">{apt.location}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-sm">{apt.date}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="w-4 h-4 text-primary" />
-                <span className="text-sm">{apt.time}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleOpenDetails(apt.id)}
-              className="w-full mt-4 bg-secondary text-foreground py-3 rounded-2xl hover:bg-accent transition-colors"
-            >
-              Ver detalles
-            </button>
-          </div>
-        ))}
+          ))
+        )}
 
         <button
           onClick={() => navigate("/home/book")}

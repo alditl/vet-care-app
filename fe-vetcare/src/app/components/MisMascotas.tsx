@@ -339,7 +339,7 @@ export default function MisMascotas() {
         </section>
 
         <button
-          onClick={() => navigate("/home/book")}
+          onClick={() => navigate("/home/book", { state: { petId: selectedPet.id, petName: selectedPet.name } })}
           className="w-full bg-primary text-white py-4 rounded-2xl hover:opacity-90 transition-opacity shadow-md flex items-center justify-center gap-2 font-medium"
         >
           <Calendar className="w-5 h-5" />
