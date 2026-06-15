@@ -47,16 +47,27 @@ class TurnoViewSet(viewsets.ModelViewSet):
 
         mascota_id = data.get('mascota_id') or data.get('mascota')
         veterinaria_id = data.get('veterinaria_id') or data.get('veterinaria')
+        
+        # Aceptar tanto fecha_hora (ISO string) como fecha + hora separados
+        fecha_hora_str = data.get('fecha_hora')
         fecha_str = data.get('fecha')
         hora_str = data.get('hora')
 
-        if not mascota_id or not veterinaria_id or not fecha_str or not hora_str:
+        if not mascota_id or not veterinaria_id:
+            raise ValidationError({'message': 'Faltan campos obligatorios para agendar el turno.'})
+
+        if not fecha_hora_str and (not fecha_str or not hora_str):
             raise ValidationError({'message': 'Faltan campos obligatorios para agendar el turno.'})
 
         try:
-            fecha_hora_combinada = datetime.strptime(f"{fecha_str} {hora_str}", "%Y-%m-%d %H:%M")
-        except ValueError:
-            raise ValidationError({'message': 'Formato de fecha u hora inválido. Use YYYY-MM-DD y HH:MM.'})
+            if fecha_hora_str:
+                # Formato ISO: 2026-06-20T09:00:00
+                fecha_hora_combinada = datetime.fromisoformat(fecha_hora_str.replace('Z', '+00:00'))
+            else:
+                # Formato separado: YYYY-MM-DD HH:MM
+                fecha_hora_combinada = datetime.strptime(f"{fecha_str} {hora_str}", "%Y-%m-%d %H:%M")
+        except (ValueError, AttributeError):
+            raise ValidationError({'message': 'Formato de fecha u hora inválido. Use YYYY-MM-DD y HH:MM o ISO format.'})
 
         try:
             mascota = Mascota.objects.get(pk=mascota_id, dueño=user)
@@ -121,7 +132,7 @@ def login_usuario(request):
         'message': 'Inicio de sesión correcto.',
         'first_name': user.first_name,
         'email': user.email,
-    }, status=user.HTTP_200_OK)
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

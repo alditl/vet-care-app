@@ -26,6 +26,16 @@ interface Veterinaria {
   reviewCount: number;
 }
 
+interface VeterinariaApi {
+  id: number;
+  nombre: string;
+  direccion: string;
+  telefono: string;
+  horarios?: string;
+  latitud: number | string;
+  longitud: number | string;
+}
+
 export default function Map() {
   const [searchAddress, setSearchAddress] = useState("");
   const [selectedVet, setSelectedVet] = useState<number | null>(null);
@@ -38,6 +48,9 @@ export default function Map() {
   const [showReviews, setShowReviews] = useState<{ vetId: number; vetName: string } | null>(null);
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [isAutocompleteReady, setIsAutocompleteReady] = useState(false);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [isLoadingVets, setIsLoadingVets] = useState(true);
+  const [vetsError, setVetsError] = useState("");
 
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
@@ -47,82 +60,8 @@ export default function Map() {
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
   const searchInputRef = useRef<HTMLDivElement>(null);
 
-  const veterinariasBase: Veterinaria[] = [
-    {
-      id: 1,
-      name: "Veterinaria Palermo",
-      address: "Av. Santa Fe 3950, Palermo, CABA",
-      distance: "Calculando...",
-      phone: "+54 11 4832-5500",
-      hours: "Lun-Vie 9:00-20:00",
-      lat: -34.5885,
-      lng: -58.4173,
-      rating: 4.5,
-      reviewCount: 2,
-    },
-    {
-      id: 2,
-      name: "Clínica Veterinaria Belgrano",
-      address: "Av. Cabildo 2358, Belgrano, CABA",
-      distance: "Calculando...",
-      phone: "+54 11 4782-1234",
-      hours: "Lun-Dom 8:00-22:00",
-      lat: -34.5615,
-      lng: -58.4553,
-      rating: 5.0,
-      reviewCount: 1,
-    },
-    {
-      id: 3,
-      name: "Vet Care Recoleta",
-      address: "Av. Las Heras 2102, Recoleta, CABA",
-      distance: "Calculando...",
-      phone: "+54 11 4805-9876",
-      hours: "24 horas",
-      lat: -34.5889,
-      lng: -58.3974,
-      rating: 5.0,
-      reviewCount: 1,
-    },
-    {
-      id: 4,
-      name: "Veterinaria Honorio",
-      address: "Av. Honorio Pueyrredón 501, Caballito, CABA",
-      distance: "Calculando...",
-      phone: "+54 11 4901-3456",
-      hours: "Lun-Vie 9:00-19:00, Sáb 9:00-13:00",
-      lat: -34.6089,
-      lng: -58.4356,
-      rating: 0,
-      reviewCount: 0,
-    },
-    {
-      id: 5,
-      name: "Veteba",
-      address: "Av. Corrientes 5678, Almagro, CABA",
-      distance: "Calculando...",
-      phone: "+54 11 4958-2345",
-      hours: "Lun-Vie 10:00-20:00",
-      lat: -34.5991,
-      lng: -58.4239,
-      rating: 0,
-      reviewCount: 0,
-    },
-    {
-      id: 6,
-      name: "Clínica Veterinaria San Justo",
-      address: "Av. Ignacio Arieta 3301, San Justo, Buenos Aires",
-      distance: "Calculando...",
-      phone: "+54 11 4651-7890",
-      hours: "Lun-Dom 24 horas",
-      lat: -34.6824,
-      lng: -58.5619,
-      rating: 0,
-      reviewCount: 0,
-    },
-  ];
-
-  const [veterinarias, setVeterinarias] = useState<Veterinaria[]>(veterinariasBase);
+  const [fetchedVeterinarias, setFetchedVeterinarias] = useState<Veterinaria[]>([]);
+  const [veterinarias, setVeterinarias] = useState<Veterinaria[]>([]);
 
   // Calcular distancia entre dos puntos geográficos usando fórmula de Haversine
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -137,6 +76,52 @@ export default function Map() {
     const distance = R * c;
     return distance;
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchVeterinarias = async () => {
+      setIsLoadingVets(true);
+      setVetsError("");
+
+      try {
+        const response = await fetch("/api/veterinarias/", { credentials: "include" });
+        if (!response.ok) throw new Error(`Error ${response.status}`);
+
+        const data: VeterinariaApi[] = await response.json();
+        const mappedVeterinarias = data
+          .map((vet) => ({
+            id: vet.id,
+            name: vet.nombre,
+            address: vet.direccion,
+            distance: "Calculando...",
+            phone: vet.telefono,
+            hours: vet.horarios || "Horario no informado",
+            lat: Number(vet.latitud),
+            lng: Number(vet.longitud),
+            rating: 0,
+            reviewCount: 0,
+          }))
+          .filter((vet) => Number.isFinite(vet.lat) && Number.isFinite(vet.lng));
+
+        if (!cancelled) {
+          setFetchedVeterinarias(mappedVeterinarias);
+          setVeterinarias(mappedVeterinarias);
+        }
+      } catch (error) {
+        console.error("Error cargando veterinarias:", error);
+        if (!cancelled) setVetsError("No se pudieron cargar las veterinarias");
+      } finally {
+        if (!cancelled) setIsLoadingVets(false);
+      }
+    };
+
+    fetchVeterinarias();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Obtener ubicación automáticamente al cargar
   useEffect(() => {
@@ -189,7 +174,7 @@ export default function Map() {
     if (userLocation) {
       setIsCalculatingDistance(true);
       setTimeout(() => {
-        const updatedVeterinarias = veterinariasBase.map(vet => {
+        const updatedVeterinarias = fetchedVeterinarias.map(vet => {
           const distance = calculateDistance(
             userLocation.lat,
             userLocation.lng,
@@ -214,9 +199,9 @@ export default function Map() {
         setIsCalculatingDistance(false);
       }, 300);
     } else {
-      setVeterinarias(veterinariasBase);
+      setVeterinarias(fetchedVeterinarias);
     }
-  }, [userLocation]);
+  }, [fetchedVeterinarias, userLocation]);
 
   useEffect(() => {
     const initMap = async () => {
@@ -270,41 +255,8 @@ export default function Map() {
         
         console.log("Autocomplete service inicializado");
         setIsAutocompleteReady(true);
+        setIsMapReady(true);
 
-        // Agregar marcadores de veterinarias
-        veterinariasBase.forEach((vet) => {
-          const marker = new window.google.maps.Marker({
-            position: { lat: vet.lat, lng: vet.lng },
-            map: map,
-            title: vet.name,
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 12,
-              fillColor: "#a78763",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 3,
-            },
-          });
-
-          const infoWindow = new window.google.maps.InfoWindow({
-            content: `
-              <div style="padding: 8px; max-width: 250px;">
-                <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #3d3d3d;">${vet.name}</h3>
-                <p style="margin: 0 0 6px 0; font-size: 12px; color: #8a8a8a;">${vet.address}</p>
-                <p style="margin: 0 0 4px 0; font-size: 11px; color: #8a8a8a;">📞 ${vet.phone}</p>
-                <p style="margin: 0; font-size: 11px; color: #8a8a8a;">🕐 ${vet.hours}</p>
-              </div>
-            `,
-          });
-
-          marker.addListener("click", () => {
-            setSelectedVet(vet.id);
-            infoWindow.open(map, marker);
-          });
-
-          markersRef.current.push(marker);
-        });
       } catch (error) {
         console.error("Error cargando Google Maps:", error);
       }
@@ -312,6 +264,48 @@ export default function Map() {
 
     initMap();
   }, []);
+
+  useEffect(() => {
+    const map = googleMapRef.current;
+    if (!isMapReady || !map || !window.google) return;
+
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+
+    veterinarias.forEach((vet) => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: vet.lat, lng: vet.lng },
+        map,
+        title: vet.name,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#a78763",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 3,
+        },
+      });
+
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: `
+          <div style="padding: 8px; max-width: 250px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #3d3d3d;">${vet.name}</h3>
+            <p style="margin: 0 0 6px 0; font-size: 12px; color: #8a8a8a;">${vet.address}</p>
+            <p style="margin: 0 0 4px 0; font-size: 11px; color: #8a8a8a;">Tel: ${vet.phone}</p>
+            <p style="margin: 0; font-size: 11px; color: #8a8a8a;">Horario: ${vet.hours}</p>
+          </div>
+        `,
+      });
+
+      marker.addListener("click", () => {
+        setSelectedVet(vet.id);
+        infoWindow.open(map, marker);
+      });
+
+      markersRef.current.push(marker);
+    });
+  }, [isMapReady, veterinarias]);
 
   // Cerrar sugerencias al hacer click fuera
   useEffect(() => {
@@ -336,7 +330,7 @@ export default function Map() {
     const searchTerm = value.toLowerCase();
     
     // Buscar primero en veterinarias locales
-    const localMatches = veterinariasBase
+    const localMatches = fetchedVeterinarias
       .filter(v => 
         v.name.toLowerCase().includes(searchTerm) || 
         v.address.toLowerCase().includes(searchTerm)
@@ -579,6 +573,22 @@ export default function Map() {
               </button>
             )}
           </div>
+          {isLoadingVets && (
+            <div className="bg-secondary rounded-2xl p-4 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Cargando veterinarias...
+            </div>
+          )}
+          {!isLoadingVets && vetsError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl p-4 text-sm">
+              {vetsError}
+            </div>
+          )}
+          {!isLoadingVets && !vetsError && veterinarias.length === 0 && (
+            <div className="bg-secondary rounded-2xl p-4 text-sm text-muted-foreground">
+              No hay veterinarias disponibles.
+            </div>
+          )}
           {veterinarias.map((vet) => (
             <div
               key={vet.id}
