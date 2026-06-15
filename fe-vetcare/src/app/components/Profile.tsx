@@ -165,9 +165,45 @@ export default function Profile() {
     setShowEditDataModal(true);
   };
 
-  const handleSaveEditData = () => {
-    setClientData({ ...editForm });
-    setShowEditDataModal(false);
+  const handleSaveEditData = async () => {
+    try {
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+        return '';
+      };
+
+      const csrftoken = getCookie('csrftoken');
+
+      const response = await fetch('/api/perfil/modificar/', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken,
+        },
+        body: JSON.stringify({
+          email: editForm.email,
+          phone: editForm.phone,
+          address: editForm.address,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setClientData({
+          email: data.email || editForm.email,
+          phone: data.phone || editForm.phone,
+          address: data.address || editForm.address,
+        });
+        setShowEditDataModal(false);
+      } else {
+        console.error('Error en el backend al actualizar el perfil');
+      }
+    } catch (error) {
+      console.error('Error de red al actualizar el perfil:', error);
+    }
   };
 
   const handleDeleteAccount = () => {
