@@ -27,6 +27,9 @@ class Veterinaria(models.Model):
     nombre = models.CharField(max_length=200)
     direccion = models.CharField(max_length=255)
     telefono = models.CharField(max_length=20)
+    horarios = models.CharField(max_length=255, default='Lun-Vie 9:00-19:00', blank=True)
+    latitud = models.FloatField(default=-34.6037)
+    longitud = models.FloatField(default=-58.3816)
 
     def __str__(self):
         return self.nombre
