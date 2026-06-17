@@ -104,7 +104,7 @@ python VetCareFinal/manage.py seed_data
 Esto crea:
 - **8 veterinarias** en CABA
 - **1 usuario demo**: `macarena@test.com` / contraseña `123456`
-- **1 mascota demo**: Galia (Perro, Caniche, 3 años)
+- **1 mascota demo**: Galia (Perro, Mestiza, 5 años)
 
 ### 3.5. Iniciar el Servidor
 
