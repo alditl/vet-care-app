@@ -5,13 +5,13 @@ import {
   Cat,
   Plus,
   ChevronLeft,
-  ChevronRight,
   Calendar,
   Weight,
   Ruler,
   Palette,
   Bell,
   FileText,
+  Trash2, // <-- Sumamos el icono de tacho de basura
 } from "lucide-react";
 
 // --- DECLARACIÓN DE INTERFACES PARA TYPESCRIPT ---
@@ -64,7 +64,7 @@ export default function MisMascotas() {
   });
 
   // --- TRAER MASCOTAS DE LA BASE DE DATOS (DJANGO) ---
-  useEffect(() => {
+  const cargarMascotas = () => {
     fetch("/api/mascotas/", { credentials: 'include' })
       .then((response) => response.json())
       .then((data: any[]) => {
@@ -81,11 +81,57 @@ export default function MisMascotas() {
         setPets(mappedPets);
 
         if (mappedPets.length > 0) {
-          setSelectedPet(mappedPets[0]);
+          // Buscamos mantener la seleccionada o poner la primera
+          setSelectedPet((prev) => {
+            if (prev && mappedPets.some(p => p.id === prev.id)) {
+              return mappedPets.find(p => p.id === prev.id) || mappedPets[0];
+            }
+            return mappedPets[0];
+          });
+        } else {
+          setSelectedPet(null);
         }
       })
       .catch((error) => console.error("Error al traer mascotas:", error));
+  };
+
+  useEffect(() => {
+    cargarMascotas();
   }, []);
+
+  // --- FUNCIÓN PARA ELIMINAR MASCOTA DE LA BASE DE DATOS ---
+  const handleEliminarMascota = async (id: number) => {
+    if (!window.confirm("¿Estás segura de que quieres eliminar esta mascota?")) return;
+
+    try {
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+        return '';
+      };
+
+      const csrftoken = getCookie('csrftoken');
+
+      const response = await fetch(`/api/mascotas/${id}/`, {
+        method: "DELETE",
+        credentials: 'include',
+        headers: {
+          "X-CSRFToken": csrftoken,
+        },
+      });
+
+      if (response.ok) {
+        alert("Mascota eliminada correctamente.");
+        cargarMascotas(); // Recarga la lista real de la BBDD
+      } else {
+        alert("No se pudo eliminar la mascota del servidor.");
+      }
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+      alert("Hubo un error al intentar borrar el registro.");
+    }
+  };
 
   // --- ESTADOS MOCK DE RECORDATORIOS Y VISITAS ---
   const [reminders] = useState<Reminder[]>([
@@ -150,7 +196,7 @@ export default function MisMascotas() {
     ? visits.filter((v) => v.petId === selectedPet.id)
     : [];
 
-  // --- VISTA SIN MASCOTAS (USANDO COMPONENTES SEMÁNTICOS) ---
+  // --- VISTA SIN MASCOTAS ---
   if (!selectedPet) {
     return (
       <main className="min-h-[calc(100vh-4rem)] bg-background flex flex-col items-center justify-center p-6">
@@ -227,9 +273,19 @@ export default function MisMascotas() {
               <SpeciesIcon className="w-10 h-10" />
             </figure>
             <hgroup className="flex-1">
-              <h2 className="text-2xl font-bold text-foreground mb-1">
-                {selectedPet.name}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-foreground mb-1">
+                  {selectedPet.name}
+                </h2>
+                {/* BOTÓN DE ELIMINAR LIBRE PARA CUALQUIER USUARIO */}
+                <button
+                  onClick={() => handleEliminarMascota(selectedPet.id)}
+                  className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition-colors"
+                  title="Eliminar Mascota"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
               <p className="text-muted-foreground">{selectedPet.breed}</p>
             </hgroup>
           </header>
@@ -351,7 +407,7 @@ export default function MisMascotas() {
     </main>
   );
 
-  // --- SUB-COMPONENTE MODAL SIN CONTENEDORES DIV ---
+  // --- SUB-COMPONENTE MODAL ---
   function renderModal() {
     return (
       <dialog
@@ -498,9 +554,7 @@ export default function MisMascotas() {
                 };
 
                 const csrftoken = getCookie('csrftoken');
-                if (!csrftoken) {
-                  console.warn('No se encontró csrftoken en las cookies.');
-                }
+                
                 const response = await fetch("/api/mascotas/", {
                   method: "POST",
                   credentials: 'include',
@@ -528,8 +582,6 @@ export default function MisMascotas() {
                 }
 
                 if (!response.ok) {
-                  console.error('Error en el guardado:', response.status, nuevaMascotaBBDD);
-                  alert(`Error al guardar mascota: ${response.status} - ${JSON.stringify(nuevaMascotaBBDD)}`);
                   throw new Error("Error en el guardado.");
                 }
 
