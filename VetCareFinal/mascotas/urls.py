@@ -8,7 +8,8 @@ from .views import (
     login_usuario, 
     logout_usuario, 
     current_user,
-    modificar_perfil
+    modificar_perfil,
+    csrf_token
 )
 
 router = DefaultRouter()
@@ -19,6 +20,7 @@ router.register(r'turnos', TurnoViewSet)
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', registrar_usuario, name='registrar_usuario'),
+    path('csrf/', csrf_token, name='csrf_token'),
     path('login/', login_usuario, name='login_usuario'),
     path('logout/', logout_usuario, name='logout_usuario'),
     path('me/', current_user, name='current_user'),

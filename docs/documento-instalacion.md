@@ -50,7 +50,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'vetcare_bd',
         'USER': 'postgres',
-        'PASSWORD': 'tu_contraseña',  # <-- cambiá acá
+        'PASSWORD': 'cachetes',
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }

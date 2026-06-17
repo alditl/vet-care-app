@@ -1,10 +1,12 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.http import JsonResponse
 from django.contrib.sessions.models import Session
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+from django.middleware.csrf import get_token
 from django.contrib.auth import authenticate
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
@@ -112,9 +114,17 @@ def registrar_usuario(request):
         return Response({'message': f'Error al registrar el usuario: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@csrf_exempt
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+@ensure_csrf_cookie
+def csrf_token(request):
+    return Response({'csrfToken': get_token(request)})
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def login_usuario(request):
     data = request.data
     email = data.get('email')

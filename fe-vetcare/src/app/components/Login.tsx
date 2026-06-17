@@ -1,6 +1,11 @@
 import { useState } from "react";
-import { Dog, Mail, Lock, Building2, X } from "lucide-react";
+import { Mail, Lock, Building2, X } from "lucide-react";
 import { useNavigate } from "react-router";
+
+function getCookie(name: string) {
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[2]) : null;
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,9 +29,14 @@ export default function Login() {
     }
 
     try {
+      await fetch("/api/csrf/", { credentials: "include" });
+
       const response = await fetch("/api/login/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCookie("csrftoken") || "",
+        },
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
@@ -59,14 +69,12 @@ export default function Login() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-12">
-          <div className="w-24 h-24 bg-primary rounded-full flex items-center justify-center mb-4 shadow-lg">
-            <Dog
-              className="w-14 h-14 text-primary-foreground"
-              strokeWidth={2}
-            />
-          </div>
-          <h1 className="text-3xl text-foreground">Vet Care</h1>
-          <p className="text-muted-foreground mt-2">Cuidamos a tu mascota</p>
+          <img
+            src="/logo.jpg"
+            alt="Vet Care"
+            className="w-48 h-48 object-contain mb-1"
+          />
+          <p className="text-muted-foreground">Cuidamos a tu mascota</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
