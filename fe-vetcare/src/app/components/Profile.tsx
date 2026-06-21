@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { User, Mail, Phone, MapPin, Dog, Bell, Shield, LogOut, Plus, X, Pencil, Trash2, Lock, Eye, FileKey } from "lucide-react";
 import { useNavigate } from "react-router";
 
@@ -65,6 +66,7 @@ export default function Profile() {
       console.error("Error al cerrar sesión:", err);
     }
     localStorage.removeItem("vetcare_userName");
+    toast.success("Sesión cerrada correctamente");
     navigate("/login");
   };
 
@@ -141,7 +143,7 @@ export default function Profile() {
 
       const data = await response.json();
       if (!response.ok) {
-        console.error('Error al guardar mascota:', response.status, data);
+        toast.error('No se pudo agregar la mascota');
         return;
       }
 
@@ -155,8 +157,10 @@ export default function Profile() {
       setPets([...pets, pet]);
       setNewPet({ name: '', species: '', breed: '', age: '', weight: '', furType: '', furColor: '' });
       setShowAddPetModal(false);
+      toast.success('Mascota agregada con éxito');
     } catch (error) {
       console.error('Error al guardar mascota:', error);
+      toast.error('Hubo un problema al agregar la mascota');
     }
   };
 
@@ -198,11 +202,13 @@ export default function Profile() {
           address: data.address || editForm.address,
         });
         setShowEditDataModal(false);
+        toast.success('Perfil actualizado con éxito');
       } else {
-        console.error('Error en el backend al actualizar el perfil');
+        toast.error('No se pudo actualizar el perfil');
       }
     } catch (error) {
       console.error('Error de red al actualizar el perfil:', error);
+      toast.error('Hubo un problema al actualizar el perfil');
     }
   };
 

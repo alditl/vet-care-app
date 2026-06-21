@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import {
   Dog,
   Cat,
@@ -37,6 +38,15 @@ interface Reminder {
   priority: "high" | "medium" | "low";
 }
 
+interface TurnoApi {
+  id: number;
+  mascota: number;
+  mascota_nombre: string;
+  veterinaria_nombre: string;
+  fecha_hora: string;
+  motivo: string;
+}
+
 interface Visit {
   id: number;
   petId: number;
@@ -44,6 +54,12 @@ interface Visit {
   location: string;
   reason: string;
   notes: string;
+}
+
+function formatDate(iso: string): string {
+  const dt = new Date(iso);
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dec"];
+  return `${String(dt.getDate()).padStart(2, "0")} ${months[dt.getMonth()]} ${dt.getFullYear()}`;
 }
 
 export default function MisMascotas() {
@@ -138,14 +154,14 @@ export default function MisMascotas() {
       });
 
       if (response.ok) {
-        alert("Mascota eliminada correctamente.");
+        toast.success("Mascota eliminada correctamente");
         cargarMascotas();
       } else {
-        alert("No se pudo eliminar la mascota del servidor.");
+        toast.error("No se pudo eliminar la mascota");
       }
     } catch (error) {
       console.error("Error al eliminar:", error);
-      alert("Hubo un error al intentar borrar el registro.");
+      toast.error("Hubo un error al intentar eliminar la mascota");
     }
   };
 
@@ -180,16 +196,27 @@ export default function MisMascotas() {
     },
   ]);
 
-  const [visits] = useState<Visit[]>([
-    {
-      id: 1,
-      petId: 1,
-      date: "15 Abr 2026",
-      location: "Vet Care Recoleta",
-      reason: "Control",
-      notes: "Excelente.",
-    },
-  ]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+
+  useEffect(() => {
+    fetch("/api/turnos/", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : [])
+      .then((data: TurnoApi[]) => {
+        const now = new Date();
+        const mapped: Visit[] = data
+          .filter((t) => new Date(t.fecha_hora) < now)
+          .map((t) => ({
+            id: t.id,
+            petId: t.mascota,
+            date: formatDate(t.fecha_hora),
+            location: t.veterinaria_nombre,
+            reason: t.motivo,
+            notes: "",
+          }));
+        setVisits(mapped);
+      })
+      .catch((err) => console.error("Error al cargar turnos:", err));
+  }, []);
 
   const getPriorityColor = (priority: "high" | "medium" | "low"): string => {
     switch (priority) {
@@ -623,13 +650,13 @@ export default function MisMascotas() {
                   throw new Error("Error al guardar en el servidor.");
                 }
 
-                alert(isEditing ? "Mascota modificada con éxito." : "Mascota agregada con éxito.");
+                toast.success(isEditing ? "Mascota modificada con éxito" : "Mascota agregada con éxito");
                 setShowModal(false);
-                cargarMascotas(); // Recargamos la BBDD limpia
+                cargarMascotas();
                 
               } catch (error) {
                 console.error("Error en la operación:", error);
-                alert("Hubo un problema al guardar los cambios en el servidor.");
+                toast.error("Hubo un problema al guardar los cambios");
               }
             }}
             className="w-full bg-primary text-white py-4 rounded-2xl hover:opacity-90 transition-opacity font-medium shadow-md mt-2"

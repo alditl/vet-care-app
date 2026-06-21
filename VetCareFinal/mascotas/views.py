@@ -38,9 +38,18 @@ class VeterinariaViewSet(viewsets.ModelViewSet):
 
 # 🚀 TU LÓGICA DE SEGURIDAD INTEGRADA EN EL VIEWSET OFICIAL
 class TurnoViewSet(viewsets.ModelViewSet):
-    queryset = Turno.objects.all()
+    queryset = Turno.objects.none()
     serializer_class = TurnoSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = getattr(self.request, 'user', None)
+        if user and user.is_authenticated:
+            veterinaria_id = self.request.query_params.get('veterinaria')
+            if veterinaria_id:
+                return Turno.objects.filter(veterinaria_id=veterinaria_id)
+            return Turno.objects.filter(mascota__dueño=user)
+        return Turno.objects.none()
 
     def perform_create(self, serializer):
         """Validaciones de negocio de Brenda antes de guardar en PostgreSQL."""

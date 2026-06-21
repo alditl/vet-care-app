@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Home, MapPin, User, Stethoscope, Bell } from "lucide-react";
+import { Toaster } from "@/app/components/ui/sonner";
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function Layout() {
         <Outlet />
       </div>
 
+      <Toaster richColors position="top-center" />
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-border shadow-lg">
         <div className="flex items-center justify-around h-16 max-w-2xl mx-auto px-2">
           {navItems.slice(0, 2).map(({ path, icon: Icon, label }) => {

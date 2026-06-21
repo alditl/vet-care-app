@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Calendar, ListChecks, Clock, Dog, Star, Building2, MessageSquare } from "lucide-react";
+import { Calendar, ListChecks, Clock, Dog, Star, Building2, MessageSquare, LogOut } from "lucide-react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 interface Review {
   id: number;
@@ -74,6 +75,28 @@ export default function Dashboard() {
     vetName: vets[i % (vets.length || 1)]?.nombre || "Veterinaria",
   }));
 
+  const handleLogout = async () => {
+    try {
+      const getCookie = (name: string) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop()!.split(';').shift() || '';
+        return '';
+      };
+      const csrftoken = getCookie('csrftoken');
+      await fetch("/api/logout/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrftoken },
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Error al cerrar sesión:", err);
+    }
+    localStorage.removeItem("vetcare_userName");
+    toast.success("Sesión cerrada correctamente");
+    navigate("/login");
+  };
+
   const menuItems = [
     {
       title: "Reserva de turnos",
@@ -103,18 +126,28 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex flex-col p-6 space-y-8">
-      <div className="flex items-center gap-4">
-        <img
-          src="/logo.jpg"
-          alt="Vet Care"
-          className="w-16 h-16 object-contain"
-        />
-        <div>
-          <h1 className="text-2xl text-foreground mb-1">
-            ¡Hola{userName ? `, ${userName}` : "!"}!
-          </h1>
-          <p className="text-muted-foreground">¿Qué necesitas hoy?</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <img
+            src="/logo.jpg"
+            alt="Vet Care"
+            className="w-16 h-16 object-contain"
+          />
+          <div>
+            <h1 className="text-2xl text-foreground mb-1">
+              ¡Hola{userName ? `, ${userName}` : "!"}!
+            </h1>
+            <p className="text-muted-foreground">¿Qué necesitas hoy?</p>
+          </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive rounded-2xl hover:bg-destructive/20 transition-colors text-sm font-medium"
+          title="Cerrar sesión"
+        >
+          <LogOut className="w-4 h-4" />
+          Salir
+        </button>
       </div>
 
       {/* Menú de Botones */}
