@@ -11,7 +11,8 @@ import {
   Palette,
   Bell,
   FileText,
-  Trash2, // <-- Sumamos el icono de tacho de basura
+  Trash2,
+  Pencil, // <-- Sumamos el icono de lápiz para editar
 } from "lucide-react";
 
 // --- DECLARACIÓN DE INTERFACES PARA TYPESCRIPT ---
@@ -48,6 +49,7 @@ interface Visit {
 export default function MisMascotas() {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false); // <-- Estado para saber si estamos editando
 
   // Estados tipados para la consistencia de TypeScript
   const [pets, setPets] = useState<Pet[]>([]);
@@ -81,7 +83,6 @@ export default function MisMascotas() {
         setPets(mappedPets);
 
         if (mappedPets.length > 0) {
-          // Buscamos mantener la seleccionada o poner la primera
           setSelectedPet((prev) => {
             if (prev && mappedPets.some(p => p.id === prev.id)) {
               return mappedPets.find(p => p.id === prev.id) || mappedPets[0];
@@ -98,6 +99,21 @@ export default function MisMascotas() {
   useEffect(() => {
     cargarMascotas();
   }, []);
+
+  // --- PREPARAR FORMULARIO PARA EDICIÓN ---
+  const abrirEditarMascota = (pet: Pet) => {
+    setIsEditing(true);
+    setNewPet({
+      name: pet.name,
+      species: pet.species,
+      breed: pet.breed,
+      age: pet.age.toString(),
+      weight: pet.weight.toString(),
+      furType: pet.furType,
+      furColor: pet.furColor,
+    });
+    setShowModal(true);
+  };
 
   // --- FUNCIÓN PARA ELIMINAR MASCOTA DE LA BASE DE DATOS ---
   const handleEliminarMascota = async (id: number) => {
@@ -123,7 +139,7 @@ export default function MisMascotas() {
 
       if (response.ok) {
         alert("Mascota eliminada correctamente.");
-        cargarMascotas(); // Recarga la lista real de la BBDD
+        cargarMascotas();
       } else {
         alert("No se pudo eliminar la mascota del servidor.");
       }
@@ -212,7 +228,11 @@ export default function MisMascotas() {
           </p>
         </section>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setIsEditing(false);
+            setNewPet({ name: "", species: "Perro", breed: "", age: "", weight: "", furType: "", furColor: "" });
+            setShowModal(true);
+          }}
           className="bg-primary text-white px-6 py-3 rounded-2xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-md"
         >
           <Plus className="w-5 h-5" />
@@ -237,7 +257,11 @@ export default function MisMascotas() {
         <section className="flex items-center gap-2 mb-4">
           <h1 className="text-xl font-medium">Mis mascotas</h1>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setIsEditing(false);
+              setNewPet({ name: "", species: "Perro", breed: "", age: "", weight: "", furType: "", furColor: "" });
+              setShowModal(true);
+            }}
             className="ml-auto bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-xl flex items-center gap-1 text-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -277,14 +301,24 @@ export default function MisMascotas() {
                 <h2 className="text-2xl font-bold text-foreground mb-1">
                   {selectedPet.name}
                 </h2>
-                {/* BOTÓN DE ELIMINAR LIBRE PARA CUALQUIER USUARIO */}
-                <button
-                  onClick={() => handleEliminarMascota(selectedPet.id)}
-                  className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition-colors"
-                  title="Eliminar Mascota"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                
+                {/* BOTONES DE ACCIÓN (EDITAR Y ELIMINAR) */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => abrirEditarMascota(selectedPet)}
+                    className="text-primary hover:text-blue-700 p-2 rounded-xl hover:bg-primary/10 transition-colors"
+                    title="Editar Mascota"
+                  >
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleEliminarMascota(selectedPet.id)}
+                    className="text-red-500 hover:text-red-700 p-2 rounded-xl hover:bg-red-50 transition-colors"
+                    title="Eliminar Mascota"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               <p className="text-muted-foreground">{selectedPet.breed}</p>
             </hgroup>
@@ -407,7 +441,7 @@ export default function MisMascotas() {
     </main>
   );
 
-  // --- SUB-COMPONENTE MODAL ---
+  // --- SUB-COMPONENTE MODAL ADAPTADO (CREATE Y UPDATE) ---
   function renderModal() {
     return (
       <dialog
@@ -420,7 +454,7 @@ export default function MisMascotas() {
         >
           <header className="flex items-center justify-between border-b border-border pb-3">
             <h2 className="text-xl text-foreground font-bold">
-              Agregar nueva mascota
+              {isEditing ? "Editar datos de mascota" : "Agregar nueva mascota"}
             </h2>
             <button
               type="button"
@@ -555,8 +589,12 @@ export default function MisMascotas() {
 
                 const csrftoken = getCookie('csrftoken');
                 
-                const response = await fetch("/api/mascotas/", {
-                  method: "POST",
+                // Si estamos editando usamos PUT a la ID de la mascota, si no POST general
+                const url = isEditing ? `/api/mascotas/${selectedPet!.id}/` : "/api/mascotas/";
+                const method = isEditing ? "PUT" : "POST";
+
+                const response = await fetch(url, {
+                  method: method,
                   credentials: 'include',
                   headers: {
                     "Content-Type": "application/json",
@@ -574,48 +612,29 @@ export default function MisMascotas() {
                 });
 
                 const responseText = await response.text();
-                let nuevaMascotaBBDD: any;
+                let mascotaBBDD: any;
                 try {
-                  nuevaMascotaBBDD = JSON.parse(responseText);
+                  mascotaBBDD = JSON.parse(responseText);
                 } catch {
-                  nuevaMascotaBBDD = responseText;
+                  mascotaBBDD = responseText;
                 }
 
                 if (!response.ok) {
-                  throw new Error("Error en el guardado.");
+                  throw new Error("Error al guardar en el servidor.");
                 }
 
-                const petFormateada: Pet = {
-                  id: nuevaMascotaBBDD.id,
-                  name: nuevaMascotaBBDD.nombre,
-                  species: nuevaMascotaBBDD.especie,
-                  breed: nuevaMascotaBBDD.raza,
-                  age: nuevaMascotaBBDD.edad,
-                  weight: nuevaMascotaBBDD.peso,
-                  furType: nuevaMascotaBBDD.tipo_pelo,
-                  furColor: nuevaMascotaBBDD.color_pelo,
-                };
-
-                setPets([...pets, petFormateada]);
-                setSelectedPet(petFormateada);
+                alert(isEditing ? "Mascota modificada con éxito." : "Mascota agregada con éxito.");
                 setShowModal(false);
-                setNewPet({
-                  name: "",
-                  species: "Perro",
-                  breed: "",
-                  age: "",
-                  weight: "",
-                  furType: "",
-                  furColor: "",
-                });
+                cargarMascotas(); // Recargamos la BBDD limpia
+                
               } catch (error) {
-                console.error("Error al registrar:", error);
-                alert("Hubo un problema al guardar en el servidor.");
+                console.error("Error en la operación:", error);
+                alert("Hubo un problema al guardar los cambios en el servidor.");
               }
             }}
             className="w-full bg-primary text-white py-4 rounded-2xl hover:opacity-90 transition-opacity font-medium shadow-md mt-2"
           >
-            Agregar mascota
+            {isEditing ? "Guardar Cambios" : "Agregar mascota"}
           </button>
         </form>
       </dialog>
