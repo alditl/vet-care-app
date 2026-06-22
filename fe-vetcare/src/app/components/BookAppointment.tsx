@@ -28,6 +28,16 @@ const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const REASONS = ["Consulta general", "Vacunación", "Control de rutina", "Emergencia"];
 const TIMES = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30", "20:00"];
 
+function getErrorMessage(body: any, fallback: string): string {
+  const message = body?.message || body?.detail || body?.non_field_errors;
+
+  if (Array.isArray(message)) return message.join(" ");
+  if (typeof message === "string") return message;
+  if (typeof body === "string") return body;
+
+  return fallback;
+}
+
 function generateDates(daysAhead = 7): DateOption[] {
   const result: DateOption[] = [];
   const today = new Date();
@@ -100,6 +110,8 @@ export default function BookAppointment() {
 
     try {
       const fecha_hora = `${selectedDate.iso}T${selectedTime}:00`;
+      await fetch("/api/csrf/", { credentials: "include" });
+
       const res = await fetch("/api/turnos/", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrfToken() },
@@ -113,12 +125,17 @@ export default function BookAppointment() {
       });
 
       if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.message || body.detail || "Error al crear el turno");
+        const text = await res.text();
+        let body: any = text;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          // Some backend errors, like CSRF failures, can come back as HTML.
+        }
+        throw new Error(getErrorMessage(body, "Error al crear el turno"));
       }
 
       setStep(3);
-      setTimeout(() => navigate("/home/appointments"), 2500);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -328,6 +345,9 @@ export default function BookAppointment() {
           <p className="text-muted-foreground text-center mb-6">
             Tu turno ha sido reservado exitosamente
           </p>
+          <div className="bg-green-50 border border-green-200 text-green-700 rounded-2xl px-4 py-3 w-full max-w-sm text-center mb-4">
+            Turno confirmado con éxito
+          </div>
           <div className="bg-secondary rounded-2xl p-6 w-full max-w-sm space-y-3">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Mascota:</span>
@@ -350,6 +370,12 @@ export default function BookAppointment() {
               <span className="text-foreground">{selectedTime}</span>
             </div>
           </div>
+          <button
+            onClick={() => navigate("/home/appointments")}
+            className="w-full max-w-sm bg-primary text-white py-4 rounded-2xl hover:opacity-90 transition-opacity shadow-md mt-4"
+          >
+            Ver mis turnos
+          </button>
         </div>
       )}
     </div>

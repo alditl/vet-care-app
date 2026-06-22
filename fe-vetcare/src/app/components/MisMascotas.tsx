@@ -472,11 +472,11 @@ export default function MisMascotas() {
   function renderModal() {
     return (
       <dialog
-        className="fixed inset-0 bg-black/50 w-full h-full flex items-end justify-center z-50 border-none p-0 m-0 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 w-full h-full flex items-center justify-center z-50 border-none p-6 m-0 backdrop-blur-sm"
         onClick={() => setShowModal(false)}
       >
         <form
-          className="bg-white w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col gap-4"
+          className="bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col gap-4"
           onClick={(e) => e.stopPropagation()}
         >
           <header className="flex items-center justify-between border-b border-border pb-3">
