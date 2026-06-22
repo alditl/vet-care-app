@@ -158,72 +158,8 @@ export default function Login() {
           </button>
         </p>
 
-        <button
-          onClick={() => setShowVetModal(true)}
-          className="w-full mt-4 bg-secondary border border-border text-foreground py-3 rounded-2xl hover:bg-accent transition-colors flex items-center justify-center gap-2"
-        >
-          <Building2 className="w-5 h-5 text-primary" />
-          <span>¿Eres veterinaria?</span>
-        </button>
       </div>
 
-      {showVetModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl text-foreground">Acceso Veterinarios</h2>
-              <button
-                onClick={() => setShowVetModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <p className="text-muted-foreground mb-6">
-              Ingresá tus credenciales profesionales para acceder al panel de
-              administración.
-            </p>
-
-            <form onSubmit={handleVetLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm text-muted-foreground mb-2">
-                  Email profesional
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="email"
-                    placeholder="veterinaria@email.com"
-                    className="w-full pl-12 pr-4 py-3 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-muted-foreground mb-2">
-                  Contraseña
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="password"
-                    placeholder="••••••••"
-                    className="w-full pl-12 pr-4 py-3 bg-input-background rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl hover:opacity-90 transition-opacity shadow-md"
-              >
-                Iniciar como Veterinaria
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
